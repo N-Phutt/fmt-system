@@ -1,65 +1,82 @@
-<!DOCTYPE html><html lang="th"><head>
-<meta charset="utf-8"/><title>FMT แจ้งซ่อม</title>
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>FM‑5 | แจ้งซ่อมออนไลน์</title>
 
-<!-- โหลดไลบรารีจาก CDN -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- โหลดไลบรารี Supabase (เวอร์ชัน 2) ผ่าน CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-<style>
-body{font-family:sans-serif;max-width:600px;margin:auto;padding:1rem}
-input,textarea,select,button{width:100%;margin:6px 0;padding:8px}
-</style>
-</head><body>
-<h2>ฟอร์มแจ้งซ่อม (FMT)</h2>
+  <style>
+    body{font-family:sans-serif;max-width:600px;margin:auto;padding:1rem}
+    h2{margin-bottom:.5rem}
+    input,textarea,select,button{width:100%;padding:8px;margin:6px 0;border:1px solid #ccc;border-radius:4px}
+    button{background:#0066cc;color:#fff;border:none;cursor:pointer}
+    button:hover{background:#0052a3}
+    #msg{margin-top:8px;color:green}
+  </style>
+</head>
+<body>
+  <h2>ฟอร์มแจ้งซ่อม (FM‑5)</h2>
 
-<form id="f">
-  <input  name="reporter"    placeholder="ชื่อผู้แจ้ง" required>
-  <input  name="department"  placeholder="แผนก" required>
-  <input  name="location"    placeholder="จุดเสีย" required>
-  <select name="priority">
-    <option>Low</option><option selected>Medium</option><option>High</option>
-  </select>
-  <textarea name="description" placeholder="รายละเอียด" rows="4" required></textarea>
-  <input type="file" name="file" accept="image/*">
-  <button>ส่งแจ้งซ่อม</button><p id="msg"></p>
-</form>
+  <form id="f">
+    <input  name="reporter"    placeholder="ชื่อผู้แจ้ง" required>
+    <input  name="department"  placeholder="แผนก" required>
+    <input  name="location"    placeholder="จุดเสีย" required>
+    <select name="priority">
+      <option>Low</option><option selected>Medium</option><option>High</option>
+    </select>
+    <textarea name="description" placeholder="รายละเอียด" rows="4" required></textarea>
+    <input type="file" name="file" accept="image/*">
+    <button type="submit">ส่งแจ้งซ่อม</button>
+    <p id="msg"></p>
+  </form>
 
-<script>
-// --- ค่า Supabase ของคุณ ---
-const SUPA_URL = 'https://lqtfxyujutgyprsgjjhh.supabase.co';
-const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxxdGZ4eXVqdXRneXByc2dqamhoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMyNjMyNTgsImV4cCI6MjA2ODgzOTI1OH0.jVLYDc0tOm44k-HtrrePdq0tQaJVANO9naBcTafK16k';
+  <script>
+    // === ค่า Supabase ของคุณ ===
+    const SUPA_URL = 'https://lqtfxyujutgyprsgjjhh.supabase.co';
+    const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxxdGZ4eXVqdXRneXByc2dqamhoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMyNjMyNTgsImV4cCI6MjA2ODgzOTI1OH0.jVLYDc0tOm44k-HtrrePdq0tQaJVANO9naBcTafK16k';
 
-const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
+    const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
 
-// ---- helper อัปโหลดรูป (ถ้าผู้ใช้แนบ) ----
-async function upload(file){
-  const ext = file.name.split('.').pop();
-  const filename = crypto.randomUUID()+'.'+ext;
-  const { error } = await supa.storage.from('ticket-photos')
-                    .upload(filename, file);
-  if(error) throw error;
-  return supa.storage.from('ticket-photos')
-           .getPublicUrl(filename).data.publicUrl;
-}
+    // -- ฟังก์ชันอัปโหลดไฟล์ไป bucket 'ticket-photos' --
+    async function upload(file){
+      const ext = file.name.split('.').pop();
+      const fname = crypto.randomUUID()+'.'+ext;
+      const { error } = await supa.storage
+        .from('ticket-photos')
+        .upload(fname, file);
+      if(error) throw error;
 
-// ---- submit form ----
-document.getElementById('f').addEventListener('submit', async e=>{
-  e.preventDefault();
-  const fd   = new FormData(e.target);
-  const data = Object.fromEntries(fd.entries());   // object → { reporter:..., ... }
-  delete data.file;                                // เอา file ออกก่อนส่ง DB
+      return supa.storage
+        .from('ticket-photos')
+        .getPublicUrl(fname).data.publicUrl;
+    }
 
-  try{
-    if(fd.get('file').size)               // ถ้ามีรูป
-      data.photo_url = await upload(fd.get('file'));
+    // -- จัดการ submit ฟอร์ม --
+    document.getElementById('f').addEventListener('submit', async ev=>{
+      ev.preventDefault();
+      const fd   = new FormData(ev.target);
+      const data = Object.fromEntries(fd.entries()); // object จาก field ทั้งหมด
+      delete data.file;                               // file แยกออกไป
 
-    const { error } = await supa.from('tickets').insert(data);
-    if(error) throw error;
+      try{
+        // ถ้ามีไฟล์แนบให้ส่งขึ้น storage ก่อน
+        const file = fd.get('file');
+        if(file && file.size) data.photo_url = await upload(file);
 
-    e.target.reset();
-    document.getElementById('msg').textContent = 'บันทึกเรียบร้อย!';
-  }catch(err){
-    document.getElementById('msg').textContent = 'ผิดพลาด: '+err.message;
-  }
-});
-</script>
-</body></html>
+        // บันทึกลงตาราง tickets
+        const { error } = await supa.from('tickets').insert(data);
+        if(error) throw error;
+
+        ev.target.reset();
+        document.getElementById('msg').textContent = 'บันทึกเรียบร้อย!';
+      }catch(err){
+        document.getElementById('msg').style.color = 'red';
+        document.getElementById('msg').textContent = 'ผิดพลาด: '+err.message;
+      }
+    });
+  </script>
+</body>
+</html>
