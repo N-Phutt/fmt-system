@@ -5,9 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>FM‑5 | แจ้งซ่อมออนไลน์</title>
 
-  <!-- โหลดไลบรารี Supabase (เวอร์ชัน 2) ผ่าน CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
   <style>
     body{font-family:sans-serif;max-width:600px;margin:auto;padding:1rem}
     h2{margin-bottom:.5rem}
@@ -34,46 +32,35 @@
   </form>
 
   <script>
-    // === ค่า Supabase ของคุณ ===
-    const SUPA_URL = 'https://lqtfxyujutgyprsgjjhh.supabase.co';
-    const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxxdGZ4eXVqdXRneXByc2dqamhoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMyNjMyNTgsImV4cCI6MjA2ODgzOTI1OH0.jVLYDc0tOm44k-HtrrePdq0tQaJVANO9naBcTafK16k';
+    const supa = supabase.createClient(
+      'https://lqtfxyujutgyprsgjjhh.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxxdGZ4eXVqdXRneXByc2dqamhoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMyNjMyNTgsImV4cCI6MjA2ODgzOTI1OH0.jVLYDc0tOm44k-HtrrePdq0tQaJVANO9naBcTafK16k'
+    );
 
-    const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
-
-    // -- ฟังก์ชันอัปโหลดไฟล์ไป bucket 'ticket-photos' --
     async function upload(file){
       const ext = file.name.split('.').pop();
-      const fname = crypto.randomUUID()+'.'+ext;
-      const { error } = await supa.storage
-        .from('ticket-photos')
-        .upload(fname, file);
+      const name = crypto.randomUUID()+'.'+ext;
+      const { error } = await supa.storage.from('ticket-photos').upload(name,file);
       if(error) throw error;
-
-      return supa.storage
-        .from('ticket-photos')
-        .getPublicUrl(fname).data.publicUrl;
+      return supa.storage.from('ticket-photos')
+               .getPublicUrl(name).data.publicUrl;
     }
 
-    // -- จัดการ submit ฟอร์ม --
-    document.getElementById('f').addEventListener('submit', async ev=>{
-      ev.preventDefault();
-      const fd   = new FormData(ev.target);
-      const data = Object.fromEntries(fd.entries()); // object จาก field ทั้งหมด
-      delete data.file;                               // file แยกออกไป
+    document.getElementById('f').addEventListener('submit', async e=>{
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const data = Object.fromEntries(fd.entries());
+      delete data.file;
 
       try{
-        // ถ้ามีไฟล์แนบให้ส่งขึ้น storage ก่อน
-        const file = fd.get('file');
-        if(file && file.size) data.photo_url = await upload(file);
-
-        // บันทึกลงตาราง tickets
+        if(fd.get('file').size) data.photo_url = await upload(fd.get('file'));
         const { error } = await supa.from('tickets').insert(data);
         if(error) throw error;
 
-        ev.target.reset();
+        e.target.reset();
         document.getElementById('msg').textContent = 'บันทึกเรียบร้อย!';
       }catch(err){
-        document.getElementById('msg').style.color = 'red';
+        document.getElementById('msg').style.color='red';
         document.getElementById('msg').textContent = 'ผิดพลาด: '+err.message;
       }
     });
