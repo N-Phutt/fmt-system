@@ -1,0 +1,65 @@
+<!DOCTYPE html><html lang="th"><head>
+<meta charset="utf-8"/><title>FMT แจ้งซ่อม</title>
+
+<!-- โหลดไลบรารีจาก CDN -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+body{font-family:sans-serif;max-width:600px;margin:auto;padding:1rem}
+input,textarea,select,button{width:100%;margin:6px 0;padding:8px}
+</style>
+</head><body>
+<h2>ฟอร์มแจ้งซ่อม (FMT)</h2>
+
+<form id="f">
+  <input  name="reporter"    placeholder="ชื่อผู้แจ้ง" required>
+  <input  name="department"  placeholder="แผนก" required>
+  <input  name="location"    placeholder="จุดเสีย" required>
+  <select name="priority">
+    <option>Low</option><option selected>Medium</option><option>High</option>
+  </select>
+  <textarea name="description" placeholder="รายละเอียด" rows="4" required></textarea>
+  <input type="file" name="file" accept="image/*">
+  <button>ส่งแจ้งซ่อม</button><p id="msg"></p>
+</form>
+
+<script>
+// --- ค่า Supabase ของคุณ ---
+const SUPA_URL = 'https://lqtfxyujutgyprsgjjhh.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxxdGZ4eXVqdXRneXByc2dqamhoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMyNjMyNTgsImV4cCI6MjA2ODgzOTI1OH0.jVLYDc0tOm44k-HtrrePdq0tQaJVANO9naBcTafK16k';
+
+const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+// ---- helper อัปโหลดรูป (ถ้าผู้ใช้แนบ) ----
+async function upload(file){
+  const ext = file.name.split('.').pop();
+  const filename = crypto.randomUUID()+'.'+ext;
+  const { error } = await supa.storage.from('ticket-photos')
+                    .upload(filename, file);
+  if(error) throw error;
+  return supa.storage.from('ticket-photos')
+           .getPublicUrl(filename).data.publicUrl;
+}
+
+// ---- submit form ----
+document.getElementById('f').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const fd   = new FormData(e.target);
+  const data = Object.fromEntries(fd.entries());   // object → { reporter:..., ... }
+  delete data.file;                                // เอา file ออกก่อนส่ง DB
+
+  try{
+    if(fd.get('file').size)               // ถ้ามีรูป
+      data.photo_url = await upload(fd.get('file'));
+
+    const { error } = await supa.from('tickets').insert(data);
+    if(error) throw error;
+
+    e.target.reset();
+    document.getElementById('msg').textContent = 'บันทึกเรียบร้อย!';
+  }catch(err){
+    document.getElementById('msg').textContent = 'ผิดพลาด: '+err.message;
+  }
+});
+</script>
+</body></html>
